@@ -1,0 +1,11 @@
+# PS4 port tooling (PS4_GPU_DESIGN.md, shader cache): packs the captured pipelines (RAC_PS4_CAPTURE records), radv's set
+# layouts and the compiled stages (.rsh) into the one shader cache file the PS4 build ships, after checking each pipeline.
+[package]
+name = "shcache"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+rac-ps4-gnm = { path = "../../gnmlib" }
+
+[workspace]

@@ -1,0 +1,15 @@
+PS4 test round 13 (2026-11-09): three starts, NEW package
+=========================================================
+
+1. Delete the old RAC-RS PS4 (diagnostics) app first (a reinstall over it keeps the old build).
+2. Install the new package from /data/pkg with GoldHEN's Package Installer. env.txt and the runs folder are already in /data/rac-rs.
+3. Start the app, leave the controller alone, let it run about 2 minutes (it reaches the level), quit with the PS button.
+4. Start it a second time, same again: about 2 minutes, then the PS button.
+   Worth a glance at the TV around 35 seconds in each time: does the title's logo or menu text show in either run?
+5. Third start, HANDS ON (the scripted controller is off, the sound is on, TV sound up please):
+   - Load your save from the title menu with the controller (about 35 s until the menu shows; the menu text may still be
+     invisible, so: Start, then Down, Cross, Cross is what the script used to do).
+   - In the level: walk, jump, swing the wrench, open the pause menu and close it, for 3-4 minutes. Then the PS button.
+   - Please note: does the controller respond (and does it feel laggy)? Do you hear music / sound effects, and is it
+     choppy? Anything else odd.
+6. Logs, pictures and the trace files come back over FTP (log_run1/2/3.txt, shots_run1/2/3, profile_run3.txt).

@@ -1,0 +1,15 @@
+# PS4 port: the few C functions Rust's FreeBSD std calls that neither the PS4's libkernel nor the OpenOrbis libc has.
+[package]
+name = "rac-ps4-shim"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+path = "lib.rs"
+
+# The unwinder (panics, and the game thread's stack clearing every 10 fields). The OpenOrbis libunwind.a is built without
+# optimisation (one function call per byte read): a probe run spent 12% of a level in it, ~9 us per frame unwound against
+# 0.1 us on the PC. This one is Rust, optimised with the program, and finds each frame's FDE by binary search in the
+# .eh_frame_hdr table that OpenOrbis's link.x marks.
+[target.'cfg(target_os = "freebsd")'.dependencies]
+unwinding = { version = "0.2.11", default-features = false, features = ["unwinder", "dwarf-expr", "hide-trace", "fde-custom"] }

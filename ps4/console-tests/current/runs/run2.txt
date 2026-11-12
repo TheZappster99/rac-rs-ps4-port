@@ -1,0 +1,4 @@
+# Run 2: the same trace, with the overlay uploaded by the render thread instead of its helper thread (RAC_OV_ASYNC=0). If the
+# text shows here and not in run 1, the helper thread's upload is what fails on the console.
+RAC_GNM_TRACE=180,700
+RAC_OV_ASYNC=0

@@ -1,0 +1,31 @@
+# PS4 port, step 4 test: wgpu itself on the PS4, through the GNM back end (rac-rs/vendor/wgpu-hal/src/gnm, feature ps4-gnm).
+# One program, three ways:
+#   PC + Vulkan  (RAC_WGPU=vulkan, the default on the PC): real pictures; with RAC_PS4_CAPTURE=DIR it records its pipelines for
+#                the shader cache (sh ps4/tools/shcache.sh DIR build-ps4/wgputest-shaders.bin);
+#   PC + GNM     (RAC_WGPU=gnm): the GNM back end on a fake GPU, to check every pipeline is found in that cache;
+#   PS4          the GNM back end on the console (sh ps4/build.sh wgputest && sh ps4/pkg.sh wgputest).
+# Its own workspace, like the other ps4/ programs; Cargo.lock starts as a copy of the game's so wgpu / naga are the same versions
+# (the shader-cache keys hash naga's output).
+[package]
+name = "rac-ps4-wgputest"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+wgpu = { version = "30.0.1", default-features = false, features = ["std", "wgsl", "noop", "parking_lot"] }
+wgpu-hal = { version = "30.0.1", features = ["ps4-gnm"] }
+log = "0.4"
+raw-window-handle = "0.6"
+rac-ps4-shim = { path = "../shim" }
+
+[target.'cfg(not(target_os = "freebsd"))'.dependencies]
+wgpu = { version = "30.0.1", default-features = false, features = ["vulkan"] }
+
+[patch.crates-io]
+wgpu-hal = { path = "../../rac-rs/vendor/wgpu-hal" }
+
+[workspace]
+
+[profile.release]
+opt-level = 3
+panic = "unwind"

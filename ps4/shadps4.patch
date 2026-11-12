@@ -1,0 +1,59 @@
+diff --git a/src/shader_recompiler/frontend/translate/scalar_alu.cpp b/src/shader_recompiler/frontend/translate/scalar_alu.cpp
+index 7678374b..df0ba05e 100644
+--- a/src/shader_recompiler/frontend/translate/scalar_alu.cpp
++++ b/src/shader_recompiler/frontend/translate/scalar_alu.cpp
+@@ -84,6 +84,8 @@ void Translator::EmitScalarAlu(const GcnInst& inst) {
+             return S_ASHR_I64(inst);
+         case Opcode::S_BFM_B32:
+             return S_BFM_B32(inst);
++        case Opcode::S_BFM_B64:
++            return S_BFM_B64(inst);
+         case Opcode::S_MUL_I32:
+             return S_MUL_I32(inst);
+         case Opcode::S_BFE_I32:
+@@ -442,6 +444,15 @@ void Translator::S_BFM_B32(const GcnInst& inst) {
+     SetDst(inst.dst[0], ir.ShiftLeftLogical(mask, src1));
+ }
+ 
++// rac-rs: Mesa's ACO (which builds rac-rs's PS4 shaders) emits this for 64-bit lane masks; Sony's compiler apparently never
++// does. D = ((1 << (S0 & 63)) - 1) << (S1 & 63); 32-bit sources, 64-bit result.
++void Translator::S_BFM_B64(const GcnInst& inst) {
++    const IR::U32 src0{ir.BitwiseAnd(GetSrc(inst.src[0]), ir.Imm32(0x3F))};
++    const IR::U32 src1{ir.BitwiseAnd(GetSrc(inst.src[1]), ir.Imm32(0x3F))};
++    const IR::U64 mask{ir.ISub(ir.ShiftLeftLogical(ir.Imm64(u64(1)), src0), ir.Imm64(u64(1)))};
++    SetDst64(inst.dst[0], ir.ShiftLeftLogical(mask, src1));
++}
++
+ void Translator::S_MUL_I32(const GcnInst& inst) {
+     SetDst(inst.dst[0], ir.IMul(GetSrc(inst.src[0]), GetSrc(inst.src[1])));
+ }
+diff --git a/src/shader_recompiler/frontend/translate/translate.h b/src/shader_recompiler/frontend/translate/translate.h
+index f3ec08f8..be90a408 100644
+--- a/src/shader_recompiler/frontend/translate/translate.h
++++ b/src/shader_recompiler/frontend/translate/translate.h
+@@ -108,6 +108,7 @@ public:
+     void S_ASHR_I32(const GcnInst& inst);
+     void S_ASHR_I64(const GcnInst& inst);
+     void S_BFM_B32(const GcnInst& inst);
++    void S_BFM_B64(const GcnInst& inst);
+     void S_MUL_I32(const GcnInst& inst);
+     void S_BFE(const GcnInst& inst, bool is_signed);
+     void S_BFE_I32(const GcnInst& inst);
+diff --git a/src/video_core/amdgpu/liverpool.cpp b/src/video_core/amdgpu/liverpool.cpp
+index 71a710df..e5c1b04c 100644
+--- a/src/video_core/amdgpu/liverpool.cpp
++++ b/src/video_core/amdgpu/liverpool.cpp
+@@ -384,9 +384,10 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb) {
+                     ASSERT(col_buf_id < NUM_COLOR_BUFFERS);
+ 
+                     const auto nop_offset = header->type3.count;
+-                    if (nop_offset == 0x0e || nop_offset == 0x0d || nop_offset == 0x0b) {
+-                        ASSERT_MSG(payload[nop_offset] == 0xc0001000,
+-                                   "NOP hint is missing in CB setup sequence");
++                    // rac-rs: command buffers not written by Sony's driver (rac-rs's own GNM back end) carry no
++                    // hint; take it only when it is there, as for the other packet sizes.
++                    if ((nop_offset == 0x0e || nop_offset == 0x0d || nop_offset == 0x0b) &&
++                        payload[nop_offset] == 0xc0001000) {
+                         last_cb_extent[col_buf_id].raw = payload[nop_offset + 1];
+                     } else {
+                         last_cb_extent[col_buf_id].raw = 0;

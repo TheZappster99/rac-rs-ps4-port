@@ -1,0 +1,7 @@
+version=1
+lighting=enhanced
+vegetation=lush
+gi=high
+draw=high
+intro=skip
+debug=on

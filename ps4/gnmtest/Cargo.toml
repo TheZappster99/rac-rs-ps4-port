@@ -1,0 +1,19 @@
+# PS4 port, GNM test 2: WGSL shaders compiled by Mesa radv for GFX7 (ps4/tools/shaders.sh) drawn on the console through the GNM
+# layer (ps4/gnmlib): descriptor sets, textures, samplers, uniform and vertex buffers, a depth target. ps4/build.sh passes the
+# shader cache folder in RAC_PS4_RSH (build-ps4/rsh/gnmtest, made by
+#   sh ps4/tools/shaders.sh ps4/gnmtest/shaders/test.wgsl build-ps4/rsh/gnmtest "bg_vs bg_fs" "cube_vs cube_fs").
+[package]
+name = "rac-ps4-gnmtest"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+rac-ps4-shim = { path = "../shim" }
+rac-ps4-gnm = { path = "../gnmlib" }
+
+[workspace]
+
+
+[profile.release]
+opt-level = 3
+panic = "unwind"

@@ -1,0 +1,17 @@
+# PS4 port, step 2 part 3: one triangle drawn by the PS4's GPU through GNM (the console's native graphics driver), with our own
+# shaders compiled by the private toolchain's LLVM (llc, amdgcn gfx701). Shown with sceVideoOut. ps4/build.sh compiles the
+# shaders in shaders/ and passes their folder in RAC_GNM_SHADERS.
+[package]
+name = "rac-ps4-gnm"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+rac-ps4-shim = { path = "../shim" }
+
+[workspace]
+
+
+[profile.release]
+opt-level = 3
+panic = "unwind"

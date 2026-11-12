@@ -1,0 +1,3 @@
+# Run 1: classic camera only (debug keys on, mods on). Round 24: classic camera + debug off took the game code from ~41 to ~20.6 ms a field.
+RAC_PERF_LOG=1
+RAC_PS4_PCOPT=water=off,waves=off,camera=classic

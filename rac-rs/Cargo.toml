@@ -1,0 +1,26 @@
+[package]
+name = "rac-rs"
+version = "0.1.0"
+edition = "2024"
+# The game as a library (src/lib.rs, crate rac_game) without the generated game code; the exe `rac-rs` is built by the package in
+# exe/ (rac-rs-exe), which adds ee-game. Kept apart so this crate compiles in parallel with the generated crates.
+autobins = false
+
+[lib]
+name = "rac_game"
+path = "src/lib.rs"
+
+[dependencies]
+# Engine split stage E3: the game's code is in three crates (sources in src/formats, src/engine, src/rac1).
+rac-formats = { path = "crates/formats" }
+rac-engine = { path = "crates/engine" }
+rac1 = { path = "crates/rac1" }
+
+[features]
+# Public build: the exe uses the Windows GUI subsystem (no console window) and logs panics to <player dir>/crash.log. Off for dev builds and test tools.
+windows_gui = []
+
+# wgpu-hal 30.0.1 with one change (vendor/wgpu-hal/README_RAC_RS.txt): its DirectX 12 start-up does not create IDXGIFactoryMedia,
+# which ReShade's DXGI hook crashes on. A cargo workspace root in a release tree needs the same line (path rac-rs/vendor/wgpu-hal).
+[patch.crates-io]
+wgpu-hal = { path = "vendor/wgpu-hal" }

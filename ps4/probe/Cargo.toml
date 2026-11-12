@@ -1,0 +1,22 @@
+# PS4 port, step 1: the game core alone (EE CPU, memory, recompiled game code), no renderer, sound or input. It cold-boots the
+# game from the disc image, runs fields as fast as it can and logs how far it got and how fast. Its own workspace, so the PC
+# build (root Cargo.toml) is untouched; it builds for Windows too, to check the probe itself before blaming the PS4.
+[package]
+name = "rac-ps4-probe"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+ee-oracle = { path = "../../oracle" }
+ee-game = { path = "../../oracle/game" }
+rac-ps4-shim = { path = "../shim" }
+# The software GS's raster pool (rac-rs/src/gsfull/gs_queue.rs).
+rayon = "1.12.0"
+
+[workspace]
+
+
+[profile.release]
+opt-level = 3
+debug = 0
+panic = "unwind"

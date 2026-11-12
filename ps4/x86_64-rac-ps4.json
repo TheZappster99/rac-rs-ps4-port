@@ -1,0 +1,32 @@
+{
+  "arch": "x86_64",
+  "cpu": "btver2",
+  "crt-objects-fallback": "false",
+  "data-layout": "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-i128:128-f80:128-n8:16:32:64-S128",
+  "dynamic-linking": true,
+  "executables": true,
+  "has-rpath": false,
+  "has-thread-local": false,
+  "linker": "rust-lld",
+  "linker-flavor": "gnu-lld",
+  "llvm-target": "x86_64-pc-freebsd12-elf",
+  "max-atomic-width": 64,
+  "metadata": {
+    "description": "PS4 (OpenOrbis homebrew): FreeBSD 11 ABI against libkernel and OpenOrbis libc, Jaguar CPU",
+    "host_tools": false,
+    "std": true,
+    "tier": 3
+  },
+  "os": "freebsd",
+  "panic-strategy": "unwind",
+  "plt-by-default": false,
+  "position-independent-executables": true,
+  "relro-level": "partial",
+  "stack-probes": {
+    "kind": "inline"
+  },
+  "target-family": [
+    "unix"
+  ],
+  "target-pointer-width": 64
+}

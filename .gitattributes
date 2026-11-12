@@ -1,0 +1,3 @@
+# PS4 port: scripts, the std patch and the console run files must keep LF endings (core.autocrlf would give them CRLF on a
+# branch switch: git apply then refuses ps4/std.patch).
+/ps4/** text=auto eol=lf

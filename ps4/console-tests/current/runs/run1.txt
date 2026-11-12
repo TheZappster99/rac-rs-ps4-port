@@ -1,0 +1,2 @@
+# Run 1: the frame trace at the title menu and in the level. The overlay texture lands as trace_NNN.raw in shots_run1.
+RAC_GNM_TRACE=180,700

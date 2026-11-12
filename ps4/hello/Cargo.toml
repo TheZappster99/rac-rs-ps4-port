@@ -1,0 +1,16 @@
+# PS4 port: the smallest std program that uses what the core needs (threads with big stacks, channels, a caught panic, files,
+# the clock). If this runs on the console, Rust's std works there.
+[package]
+name = "rac-ps4-hello"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+rac-ps4-shim = { path = "../shim" }
+
+[workspace]
+
+
+[profile.release]
+opt-level = 3
+panic = "unwind"

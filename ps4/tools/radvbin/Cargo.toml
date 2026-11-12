@@ -1,0 +1,8 @@
+# PS4 port tooling (PS4_GPU_DESIGN.md, shader pipeline): turns radv's VK_KHR_pipeline_binary blobs (Mesa 26.1.6, compiled for
+# GFX7 in WSL by ps4/tools/vkc) into the PS4 shader-cache entries the GNM layer loads (ps4/gnm, `Shader::parse`).
+[package]
+name = "radvbin"
+version = "0.1.0"
+edition = "2024"
+
+[workspace]

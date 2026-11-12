@@ -1,0 +1,33 @@
+# PS4 port, step 5: the real game (crate rac_game + the recompiled code) on the GNM back end (rac-rs/vendor/wgpu-hal/src/gnm).
+# For now it builds for the PC only: run with WGPU_BACKEND=noop WGPU_NOOP_BACKEND=1 and RAC_PS4_SHADERS=build-ps4/ps4shaders.bin,
+# and the game's window renders through the GNM back end's fake GPU (nothing drawn); every pipeline the game makes that the shader
+# cache lacks goes to missing_pipelines.txt. That is the cache census for the real renderer (PS4_GPU_DESIGN.md, work order step 5).
+# Its own workspace, like the other ps4/ programs; Cargo.lock starts as a copy of the game's so wgpu / naga are the same versions
+# (the shader-cache keys hash naga's output).
+[package]
+name = "rac-ps4-app"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+rac-rs = { path = "../../rac-rs" }
+ee-game = { path = "../../oracle/game" }
+wgpu = { version = "30.0.1", default-features = false, features = ["noop"] }
+rac-ps4-shim = { path = "../shim" }
+wgpu-hal = { version = "30.0.1", features = ["ps4-gnm"] }
+
+# PS4: the program heap lives in direct memory (src/heap.rs), the console's ~280 MB of flexible memory is far too small for
+# the game's CPU-side data.
+[target.'cfg(target_os = "freebsd")'.dependencies]
+dlmalloc = { version = "0.2", default-features = false }
+
+[patch.crates-io]
+wgpu-hal = { path = "../../rac-rs/vendor/wgpu-hal" }
+# The crates.io libc without FreeBSD symbol versions, which the PS4 lacks (made by ps4/build.sh; run it once before a PC build).
+libc = { path = "../../build-ps4/libc-ps4" }
+
+[workspace]
+
+[profile.release]
+opt-level = 3
+panic = "unwind"

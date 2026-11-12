@@ -1,0 +1,3 @@
+# Run 2: debug keys off only (modern camera, mods on).
+RAC_PERF_LOG=1
+RAC_PS4_PCOPT=water=off,waves=off,debug=off

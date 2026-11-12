@@ -1,0 +1,8 @@
+# Run 3: hands on. The scripted pad is off (the controller is the only input) and the sound is on: the first time either is
+# tried by a person. The profiler samples every thread for 60 s from 120 s in, and the GPU timers run in a few level frames,
+# for the overnight speed work.
+RAC_RETAIL_PAD=
+RAC_PS4_AUDIO=1
+RAC_PS4_PROF=120,60
+RAC_GNM_GPUPROF=1200,1500,1800
+RAC_PS4_SHOT=1200,1800

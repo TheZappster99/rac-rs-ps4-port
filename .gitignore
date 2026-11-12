@@ -1,0 +1,41 @@
+/generated/
+/build/
+/player/
+/toolchain/
+/Play.cmd
+*.iso
+# written on the player's PC by setup.ps1 (tools/recgen_iso.py, tools/vugen_iso.py)
+/oracle/rec/
+/oracle/game/
+/oracle/src/vu0_prog0.rs
+/oracle/src/vu0_prog1.rs
+/oracle/src/vu0_prog9hi.rs
+/oracle/src/skinff_ee.rs
+/oracle/src/skinff_vu.rs
+<<<<<<< HEAD
+/rac-rs/src/gsfull/vu1_prog*.rs
+/rac-rs/src/gsfull/vu1aot_gen.rs
+/rac-rs/src/particles/orb_tables.rs
+# The install's mods folder (setup copies the bundled mods there, the game writes the built-in mods' manifests and active.txt)
+/mods/
+# The RAC-RS Launcher's own files when it lives in the install folder, and Python caches
+/library.json
+/profiles/
+/rac-rs-launcher-*.exe
+/launcher.cfg
+__pycache__/
+=======
+/rac-rs/src/engine/gsfull/vu1_prog*.rs
+/rac-rs/src/engine/gsfull/vu1aot_gen.rs
+/rac-rs/src/rac1/particles/orb_tables.rs
+# upscaler DLLs (FSR, DLSS): in the release zip (bundled/), never in git
+/bundled/amd_fidelityfx_*.dll
+/bundled/nvngx_dlss.dll
+/bundled/rac_ngx.dll
+>>>>>>> main
+
+# PS4 port build output (contains the recompiled game code)
+build-ps4/
+
+# Run artifacts (GPU kernel caches)
+rac-rs/player/

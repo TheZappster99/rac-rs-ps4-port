@@ -1,0 +1,16 @@
+# PS4 port, step 2 part 2: can we draw with the PS4's GPU? Loads Piglet (the system's OpenGL ES 2 library), tries to compile
+# GLSL ES shaders at run time, and times PS2-like drawing (render to texture, many small blended triangles, many state changes).
+[package]
+name = "rac-ps4-gpu"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+rac-ps4-shim = { path = "../shim" }
+
+[workspace]
+
+
+[profile.release]
+opt-level = 3
+panic = "unwind"

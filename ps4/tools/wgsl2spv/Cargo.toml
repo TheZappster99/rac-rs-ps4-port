@@ -1,0 +1,11 @@
+# PS4 port tooling (PS4_GPU_DESIGN.md, shader pipeline): WGSL -> SPIR-V per entry point, plus a reflection file the WSL
+# compile step (ps4/tools/vkc) builds its Vulkan pipeline layout from. The same naga version as wgpu.
+[package]
+name = "wgsl2spv"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+naga = { version = "=30.0.1", features = ["wgsl-in", "spv-out"] }
+
+[workspace]

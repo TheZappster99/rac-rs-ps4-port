@@ -1,0 +1,12 @@
+# PS4 port: the GNM layer (PS4_GPU_DESIGN.md, milestone 1). PM4 command buffers, GFX7 resource descriptors, render and depth
+# targets, the shader cache entries (.rsh, from ps4/tools/radvbin) and their register values, direct memory and video out.
+# Everything except `ps4` (the console's libraries) is plain Rust and is unit-tested on the PC (cargo test).
+[package]
+name = "rac-ps4-gnm"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+name = "rac_ps4_gnm"
+
+[workspace]

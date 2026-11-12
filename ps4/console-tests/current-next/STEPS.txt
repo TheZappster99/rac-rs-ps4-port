@@ -1,0 +1,8 @@
+PS4 test round 25 (2026-11-11): two starts of RAC-RS PS4 (diagnostics), SAME package (no reinstall).
+=========================================================
+Round 24 found the speed: the game code ran twice as fast with the classic camera and the debug keys off. These two starts
+tell which of the two it was.
+
+1. Start RAC-RS PS4 (diagnostics). It loads the save and walks in the level by itself: leave the controller alone.
+2. Leave it about 3 minutes, then press the PS button and close the app.
+3. Do the same once more (start 2), then tell Claude.

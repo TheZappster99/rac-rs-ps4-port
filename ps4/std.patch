@@ -1,0 +1,327 @@
+diff --git a/library/Cargo.toml b/library/Cargo.toml
+index 788c990..b9e102f 100644
+--- a/library/Cargo.toml
++++ b/library/Cargo.toml
+@@ -88,3 +88,6 @@ rustc-std-workspace-std = { path = 'rustc-std-workspace-std' }
+ 
+ # See comments in `library/windows-sys/Cargo.toml` for why this is patched
+ windows-sys = { path = 'windows-sys' }
++
++# PS4 port: libc with FreeBSD's symbol versions (stat@FBSD_1.0, ...) dropped; the PS4's libkernel exports plain names.
++libc = { path = 'vendor/libc-0.2.189' }
+diff --git a/library/std/src/sys/fs/unix.rs b/library/std/src/sys/fs/unix.rs
+index cdd1ef6..b3f3289 100644
+--- a/library/std/src/sys/fs/unix.rs
++++ b/library/std/src/sys/fs/unix.rs
+@@ -916,7 +916,7 @@ impl Iterator for ReadDir {
+                         target_os = "netbsd",
+                         target_os = "openbsd",
+                     ))]
+-                    d_ino: (*entry_ptr).d_fileno,
++                    d_ino: (*entry_ptr).d_fileno as _,
+                     #[cfg(any(target_os = "nuttx", target_os = "vita",))]
+                     d_ino: 0,
+                     #[cfg(not(any(
+diff --git a/library/std/src/sys/pal/unix/stack_overflow.rs b/library/std/src/sys/pal/unix/stack_overflow.rs
+index d6d03e0..69d62b1 100644
+--- a/library/std/src/sys/pal/unix/stack_overflow.rs
++++ b/library/std/src/sys/pal/unix/stack_overflow.rs
+@@ -582,7 +582,9 @@ mod imp {
+             let mut guardsize = 0;
+             assert_eq!(libc::pthread_attr_getguardsize(attr.as_ptr(), &mut guardsize), 0);
+             if guardsize == 0 {
+-                if cfg!(all(target_os = "linux", target_env = "musl")) {
++                // rac-rs PS4 port (target_os freebsd): the shadPS4 emulator reports a zero guard size for every thread, and a
++                // panic here kills each thread at its start. One page as the assumed guard only affects the overflow message.
++                if cfg!(any(all(target_os = "linux", target_env = "musl"), target_os = "freebsd")) {
+                     // musl versions before 1.1.19 always reported guard
+                     // size obtained from pthread_attr_get_np as zero.
+                     // Use page size as a fallback.
+diff --git a/library/std/src/sys/stdio/unix.rs b/library/std/src/sys/stdio/unix.rs
+index 205478f..cc40d13 100644
+--- a/library/std/src/sys/stdio/unix.rs
++++ b/library/std/src/sys/stdio/unix.rs
+@@ -12,6 +12,37 @@ pub struct Stdin;
+ pub struct Stdout;
+ pub struct Stderr;
+ 
++// rac-rs PS4 port: the console starts the app with no usable descriptors 1 and 2 (dup2 onto them did not reach the file), so
++// stdout and stderr go to the descriptor the app hands over here (its log file), when it has.
++#[cfg(target_os = "freebsd")]
++static RAC_LOG_FD: crate::sync::atomic::AtomicI32 = crate::sync::atomic::AtomicI32::new(-1);
++
++/// rac-rs PS4 port: send stdout and stderr to `fd` from now on (-1: back to descriptors 1 and 2).
++#[cfg(target_os = "freebsd")]
++#[unsafe(no_mangle)]
++pub extern "C" fn rac_std_set_log_fd(fd: i32) {
++    RAC_LOG_FD.store(fd, crate::sync::atomic::Ordering::Release);
++}
++
++/// rac-rs PS4 port: force the log descriptor's writes to disk (fsync); returns its result, or -1 without one.
++#[cfg(target_os = "freebsd")]
++#[unsafe(no_mangle)]
++pub extern "C" fn rac_std_sync_log() -> i32 {
++    let fd = RAC_LOG_FD.load(crate::sync::atomic::Ordering::Acquire);
++    if fd < 0 { -1 } else { unsafe { libc::fsync(fd) } }
++}
++
++fn out_fd(default: i32) -> i32 {
++    #[cfg(target_os = "freebsd")]
++    {
++        let fd = RAC_LOG_FD.load(crate::sync::atomic::Ordering::Acquire);
++        if fd >= 0 {
++            return fd;
++        }
++    }
++    default
++}
++
+ impl Stdin {
+     pub const fn new() -> Stdin {
+         Stdin
+@@ -45,11 +76,11 @@ impl Stdout {
+ 
+ impl io::Write for Stdout {
+     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+-        unsafe { ManuallyDrop::new(FileDesc::from_raw_fd(STDOUT_FILENO)).write(buf) }
++        unsafe { ManuallyDrop::new(FileDesc::from_raw_fd(out_fd(STDOUT_FILENO))).write(buf) }
+     }
+ 
+     fn write_vectored(&mut self, bufs: &[IoSlice<'_>]) -> io::Result<usize> {
+-        unsafe { ManuallyDrop::new(FileDesc::from_raw_fd(STDOUT_FILENO)).write_vectored(bufs) }
++        unsafe { ManuallyDrop::new(FileDesc::from_raw_fd(out_fd(STDOUT_FILENO))).write_vectored(bufs) }
+     }
+ 
+     #[inline]
+@@ -71,11 +102,11 @@ impl Stderr {
+ 
+ impl io::Write for Stderr {
+     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+-        unsafe { ManuallyDrop::new(FileDesc::from_raw_fd(STDERR_FILENO)).write(buf) }
++        unsafe { ManuallyDrop::new(FileDesc::from_raw_fd(out_fd(STDERR_FILENO))).write(buf) }
+     }
+ 
+     fn write_vectored(&mut self, bufs: &[IoSlice<'_>]) -> io::Result<usize> {
+-        unsafe { ManuallyDrop::new(FileDesc::from_raw_fd(STDERR_FILENO)).write_vectored(bufs) }
++        unsafe { ManuallyDrop::new(FileDesc::from_raw_fd(out_fd(STDERR_FILENO))).write_vectored(bufs) }
+     }
+ 
+     #[inline]
+diff --git a/library/std/src/sys/thread/unix.rs b/library/std/src/sys/thread/unix.rs
+index 2dbb031..86abb59 100644
+--- a/library/std/src/sys/thread/unix.rs
++++ b/library/std/src/sys/thread/unix.rs
+@@ -149,6 +149,16 @@ impl Drop for Thread {
+     }
+ }
+ 
++/// rac-rs PS4 port: the core count `available_parallelism` reports when non-zero (set by the app, `RAC_PS4_CPUS`).
++#[cfg(target_os = "freebsd")]
++static RAC_STD_CPUS: crate::sync::atomic::AtomicUsize = crate::sync::atomic::AtomicUsize::new(0);
++
++#[cfg(target_os = "freebsd")]
++#[unsafe(no_mangle)]
++pub extern "C" fn rac_std_set_cpus(n: usize) {
++    RAC_STD_CPUS.store(n, crate::sync::atomic::Ordering::Relaxed);
++}
++
+ pub fn available_parallelism() -> io::Result<NonZero<usize>> {
+     cfg_select! {
+         any(
+@@ -205,6 +215,15 @@ pub fn available_parallelism() -> io::Result<NonZero<usize>> {
+         ) => {
+             use crate::ptr;
+ 
++            // rac-rs PS4 port: the app can set the core count (rac_std_set_cpus), for when the console's answer is wrong.
++            #[cfg(target_os = "freebsd")]
++            {
++                let n = RAC_STD_CPUS.load(crate::sync::atomic::Ordering::Relaxed);
++                if n > 0 {
++                    return Ok(unsafe { NonZero::new_unchecked(n) });
++                }
++            }
++
+             #[cfg(target_os = "freebsd")]
+             {
+                 let mut set: libc::cpuset_t = unsafe { mem::zeroed() };
+diff --git a/library/vendor/libc-0.2.189/src/unix/bsd/freebsdlike/freebsd/freebsd11/mod.rs b/library/vendor/libc-0.2.189/src/unix/bsd/freebsdlike/freebsd/freebsd11/mod.rs
+index 1bf913b..a2a442a 100644
+--- a/library/vendor/libc-0.2.189/src/unix/bsd/freebsdlike/freebsd/freebsd11/mod.rs
++++ b/library/vendor/libc-0.2.189/src/unix/bsd/freebsdlike/freebsd/freebsd11/mod.rs
+@@ -315,7 +315,7 @@ extern "C" {
+     // Argument order of the function pointer changed in FreeBSD 14. From 14 onwards the signature
+     // matches the POSIX specification by having the third argument be a mutable pointer, on
+     // earlier versions the first argument is the mutable pointer.
+-    #[link_name = "qsort_r@FBSD_1.0"]
++    #[link_name = "qsort_r"]
+     pub fn qsort_r(
+         base: *mut c_void,
+         num: size_t,
+diff --git a/library/vendor/libc-0.2.189/src/unix/bsd/freebsdlike/freebsd/freebsd12/mod.rs b/library/vendor/libc-0.2.189/src/unix/bsd/freebsdlike/freebsd/freebsd12/mod.rs
+index 8fd4961..6c6f4b9 100644
+--- a/library/vendor/libc-0.2.189/src/unix/bsd/freebsdlike/freebsd/freebsd12/mod.rs
++++ b/library/vendor/libc-0.2.189/src/unix/bsd/freebsdlike/freebsd/freebsd12/mod.rs
+@@ -353,7 +353,7 @@ extern "C" {
+     pub fn dirname(path: *mut c_char) -> *mut c_char;
+     pub fn basename(path: *mut c_char) -> *mut c_char;
+ 
+-    #[link_name = "qsort_r@FBSD_1.0"]
++    #[link_name = "qsort_r"]
+     pub fn qsort_r(
+         base: *mut c_void,
+         num: size_t,
+diff --git a/library/vendor/libc-0.2.189/src/unix/bsd/freebsdlike/freebsd/freebsd13/mod.rs b/library/vendor/libc-0.2.189/src/unix/bsd/freebsdlike/freebsd/freebsd13/mod.rs
+index 2858cbf..401fd44 100644
+--- a/library/vendor/libc-0.2.189/src/unix/bsd/freebsdlike/freebsd/freebsd13/mod.rs
++++ b/library/vendor/libc-0.2.189/src/unix/bsd/freebsdlike/freebsd/freebsd13/mod.rs
+@@ -392,7 +392,7 @@ extern "C" {
+     pub fn dirname(path: *mut c_char) -> *mut c_char;
+     pub fn basename(path: *mut c_char) -> *mut c_char;
+ 
+-    #[link_name = "qsort_r@FBSD_1.0"]
++    #[link_name = "qsort_r"]
+     pub fn qsort_r(
+         base: *mut c_void,
+         num: size_t,
+diff --git a/library/vendor/libc-0.2.189/src/unix/bsd/freebsdlike/freebsd/mod.rs b/library/vendor/libc-0.2.189/src/unix/bsd/freebsdlike/freebsd/mod.rs
+index 0d1491b..c37b15d 100644
+--- a/library/vendor/libc-0.2.189/src/unix/bsd/freebsdlike/freebsd/mod.rs
++++ b/library/vendor/libc-0.2.189/src/unix/bsd/freebsdlike/freebsd/mod.rs
+@@ -4838,9 +4838,9 @@ extern "C" {
+         abstime: *const crate::timespec,
+     ) -> c_int;
+ 
+-    #[cfg_attr(all(target_os = "freebsd", freebsd11), link_name = "statfs@FBSD_1.0")]
++    #[cfg_attr(all(target_os = "freebsd", freebsd11), link_name = "statfs")]
+     pub fn statfs(path: *const c_char, buf: *mut statfs) -> c_int;
+-    #[cfg_attr(all(target_os = "freebsd", freebsd11), link_name = "fstatfs@FBSD_1.0")]
++    #[cfg_attr(all(target_os = "freebsd", freebsd11), link_name = "fstatfs")]
+     pub fn fstatfs(fd: c_int, buf: *mut statfs) -> c_int;
+ 
+     pub fn dup3(src: c_int, dst: c_int, flags: c_int) -> c_int;
+@@ -4874,7 +4874,7 @@ extern "C" {
+     pub fn getfsstat(buf: *mut crate::statfs, bufsize: c_long, mode: c_int) -> c_int;
+     #[cfg_attr(
+         all(target_os = "freebsd", freebsd11),
+-        link_name = "getmntinfo@FBSD_1.0"
++        link_name = "getmntinfo"
+     )]
+     pub fn getmntinfo(mntbufp: *mut *mut crate::statfs, mode: c_int) -> c_int;
+     pub fn mount(
+diff --git a/library/vendor/libc-0.2.189/src/unix/bsd/freebsdlike/mod.rs b/library/vendor/libc-0.2.189/src/unix/bsd/freebsdlike/mod.rs
+index 5c9bccf..9c57acd 100644
+--- a/library/vendor/libc-0.2.189/src/unix/bsd/freebsdlike/mod.rs
++++ b/library/vendor/libc-0.2.189/src/unix/bsd/freebsdlike/mod.rs
+@@ -1544,7 +1544,7 @@ extern "C" {
+     pub fn initgroups(name: *const c_char, basegid: crate::gid_t) -> c_int;
+     #[cfg_attr(
+         all(target_os = "freebsd", any(freebsd11, freebsd10)),
+-        link_name = "kevent@FBSD_1.0"
++        link_name = "kevent"
+     )]
+     pub fn kevent(
+         kq: c_int,
+diff --git a/library/vendor/libc-0.2.189/src/unix/bsd/mod.rs b/library/vendor/libc-0.2.189/src/unix/bsd/mod.rs
+index e0a39f2..d379a8c 100644
+--- a/library/vendor/libc-0.2.189/src/unix/bsd/mod.rs
++++ b/library/vendor/libc-0.2.189/src/unix/bsd/mod.rs
+@@ -541,12 +541,12 @@ extern "C" {
+     pub fn labs(i: c_long) -> c_long;
+     #[cfg_attr(
+         all(target_os = "freebsd", any(freebsd12, freebsd11, freebsd10)),
+-        link_name = "rand@FBSD_1.0"
++        link_name = "rand"
+     )]
+     pub fn rand() -> c_int;
+     #[cfg_attr(
+         all(target_os = "freebsd", any(freebsd12, freebsd11, freebsd10)),
+-        link_name = "srand@FBSD_1.0"
++        link_name = "srand"
+     )]
+     pub fn srand(seed: c_uint);
+ 
+@@ -580,7 +580,7 @@ extern "C" {
+     #[cfg_attr(target_os = "netbsd", link_name = "__glob30")]
+     #[cfg_attr(
+         all(target_os = "freebsd", any(freebsd11, freebsd10)),
+-        link_name = "glob@FBSD_1.0"
++        link_name = "glob"
+     )]
+     pub fn glob(
+         pattern: *const c_char,
+@@ -591,7 +591,7 @@ extern "C" {
+     #[cfg_attr(target_os = "netbsd", link_name = "__globfree30")]
+     #[cfg_attr(
+         all(target_os = "freebsd", any(freebsd11, freebsd10)),
+-        link_name = "globfree@FBSD_1.0"
++        link_name = "globfree"
+     )]
+     pub fn globfree(pglob: *mut crate::glob_t);
+ 
+@@ -763,7 +763,7 @@ extern "C" {
+     )]
+     #[cfg_attr(
+         all(target_os = "freebsd", any(freebsd12, freebsd11, freebsd10)),
+-        link_name = "wait4@FBSD_1.0"
++        link_name = "wait4"
+     )]
+     #[cfg_attr(target_os = "netbsd", link_name = "__wait450")]
+     pub fn wait4(
+diff --git a/library/vendor/libc-0.2.189/src/unix/mod.rs b/library/vendor/libc-0.2.189/src/unix/mod.rs
+index 6c64020..274229d 100644
+--- a/library/vendor/libc-0.2.189/src/unix/mod.rs
++++ b/library/vendor/libc-0.2.189/src/unix/mod.rs
+@@ -912,7 +912,7 @@ extern "C" {
+     #[cfg_attr(target_os = "netbsd", link_name = "__fstat50")]
+     #[cfg_attr(
+         all(target_os = "freebsd", any(freebsd11, freebsd10)),
+-        link_name = "fstat@FBSD_1.0"
++        link_name = "fstat"
+     )]
+     #[cfg_attr(gnu_time_bits64, link_name = "__fstat64_time64")]
+     #[cfg_attr(
+@@ -931,7 +931,7 @@ extern "C" {
+     #[cfg_attr(target_os = "netbsd", link_name = "__stat50")]
+     #[cfg_attr(
+         all(target_os = "freebsd", any(freebsd11, freebsd10)),
+-        link_name = "stat@FBSD_1.0"
++        link_name = "stat"
+     )]
+     #[cfg_attr(gnu_time_bits64, link_name = "__stat64_time64")]
+     #[cfg_attr(
+@@ -999,7 +999,7 @@ extern "C" {
+     #[cfg_attr(target_os = "netbsd", link_name = "__readdir30")]
+     #[cfg_attr(
+         all(target_os = "freebsd", any(freebsd11, freebsd10)),
+-        link_name = "readdir@FBSD_1.0"
++        link_name = "readdir"
+     )]
+     #[cfg_attr(gnu_file_offset_bits64, link_name = "readdir64")]
+     pub fn readdir(dirp: *mut crate::DIR) -> *mut crate::dirent;
+@@ -1249,7 +1249,7 @@ extern "C" {
+     #[cfg_attr(target_os = "netbsd", link_name = "__lstat50")]
+     #[cfg_attr(
+         all(target_os = "freebsd", any(freebsd11, freebsd10)),
+-        link_name = "lstat@FBSD_1.0"
++        link_name = "lstat"
+     )]
+     #[cfg_attr(gnu_time_bits64, link_name = "__lstat64_time64")]
+     #[cfg_attr(
+@@ -1536,7 +1536,7 @@ extern "C" {
+     #[cfg_attr(target_os = "netbsd", link_name = "__mknod50")]
+     #[cfg_attr(
+         all(target_os = "freebsd", any(freebsd11, freebsd10)),
+-        link_name = "mknod@FBSD_1.0"
++        link_name = "mknod"
+     )]
+     pub fn mknod(pathname: *const c_char, mode: mode_t, dev: crate::dev_t) -> c_int;
+     #[cfg(not(target_os = "espidf"))]
+@@ -2247,7 +2247,7 @@ cfg_if! {
+             #[cfg_attr(target_os = "netbsd", link_name = "__readdir_r30")]
+             #[cfg_attr(
+                 all(target_os = "freebsd", any(freebsd11, freebsd10)),
+-                link_name = "readdir_r@FBSD_1.0"
++                link_name = "readdir_r"
+             )]
+             #[cfg_attr(
+                 all(target_os = "freebsd", not(any(freebsd11, freebsd10))),
